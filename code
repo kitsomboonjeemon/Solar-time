@@ -1,0 +1,53 @@
+# ================= CONFIG =================
+$apiUrl   = "http://147.50.254.98:3001/api/summary"
+$baseDir  = "D:\SolarData"
+$snapDir  = "$baseDir\snapshots"
+$mainFile = "$baseDir\solar_history.csv"
+$logFile  = "$baseDir\collector.log"
+
+New-Item -ItemType Directory -Force -Path $baseDir, $snapDir | Out-Null
+
+# ================= FETCH API =================
+try {
+    $data = Invoke-RestMethod -Uri $apiUrl -TimeoutSec 20
+} catch {
+    Add-Content $logFile "$(Get-Date -Format u) ❌ API fetch failed"
+    exit 1
+}
+
+# ================= TIME =================
+$ts     = Get-Date
+$tsStr  = $ts.ToString("yyyy-MM-dd HH:mm:ss")
+$dayStr = $ts.ToString("yyyy-MM-dd")
+
+# ================= ROW =================
+$row = [PSCustomObject]@{
+    Timestamp        = $tsStr
+    pvPower          = $data.pvPower
+    pvVoltage        = $data.pvVoltage
+    pvCurrent        = $data.pvCurrent
+    pvEnergy         = $data.pvEnergy
+    batCharge        = $data.batCharge
+    batDischarge     = $data.batDischarge
+    loadEnergy       = $data.loadEnergy
+    gridImport       = $data.gridImport
+    gridExport       = $data.gridExport
+    frequency        = $data.outputFreq
+    irradiance       = $data.irradiance
+    co2Reduced       = $data.co2Reduced
+    ktoe             = $data.ktoe
+}
+
+# ================= 1) MASTER FILE (สะสมทั้งหมด) =================
+if (Test-Path $mainFile) {
+    $row | Export-Csv $mainFile -Append -NoTypeInformation -Encoding UTF8
+} else {
+    $row | Export-Csv $mainFile -NoTypeInformation -Encoding UTF8
+}
+
+# ================= 2) DAILY SNAPSHOT (วันละไฟล์) =================
+$snapFile = "$snapDir\solar_$dayStr.csv"
+$row | Export-Csv $snapFile -Append -NoTypeInformation -Encoding UTF8
+
+# ================= LOG =================
+Add-Content $logFile "$(Get-Date -Format u) ✅ Saved CSV snapshot $snapFile"
