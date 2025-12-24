@@ -1,0 +1,83 @@
+Import-Module ImportExcel
+
+# ================= CONFIG =================
+$apiUrl     = "http://147.50.254.98:3001/api/summary"
+$baseDir    = "D:\SolarData"
+$snapDir    = "$baseDir\snapshots"
+$masterFile = "$baseDir\solar_history.xlsx"
+$logFile    = "$baseDir\collector.log"
+
+New-Item -ItemType Directory -Force -Path $baseDir, $snapDir | Out-Null
+
+# ================= FETCH API =================
+try {
+    $data = Invoke-RestMethod -Uri $apiUrl -TimeoutSec 20
+} catch {
+    Add-Content $logFile "$(Get-Date -Format u) ❌ API fetch failed"
+    exit 1
+}
+
+# ================= TIME =================
+$ts     = Get-Date
+$tsStr  = $ts.ToString("yyyy-MM-dd HH:mm:ss")
+$dayStr = $ts.ToString("yyyy-MM-dd")   # ✅ ใช้แค่วัน (วันละไฟล์)
+
+# ================= ROW =================
+$row = [PSCustomObject]@{
+    Timestamp             = $tsStr
+    "PV Power (kW)"       = $data.pvPower
+    "PV Voltage (V)"     = $data.pvVoltage
+    "PV Current (A)"     = $data.pvCurrent
+    "PV Energy (kWh)"    = $data.pvEnergy
+    "Battery Charge"     = $data.batCharge
+    "Battery Discharge"  = $data.batDischarge
+    "Load Energy"        = $data.loadEnergy
+    "Grid Import"        = $data.gridImport
+    "Grid Export"        = $data.gridExport
+    "Frequency"          = $data.outputFreq
+    "Irradiance"         = $data.irradiance
+    "CO2 Reduced"        = $data.co2Reduced
+    "KTOE"               = $data.ktoe
+}
+
+# ================= 1) MASTER FILE (Newest on Top) =================
+if (Test-Path $masterFile) {
+
+    $oldData = Import-Excel $masterFile -WorksheetName History
+    $newData = @($row) + $oldData
+
+    $newData | Export-Excel $masterFile `
+        -WorksheetName History `
+        -ClearSheet `
+        -AutoSize
+} else {
+    $row | Export-Excel $masterFile `
+        -WorksheetName History `
+        -AutoSize
+}
+
+# ================= 2) DAILY SNAPSHOT (วันละไฟล์) =================
+$snapFile = "$snapDir\solar_$dayStr.xlsx"
+
+if (Test-Path $snapFile) {
+
+    $oldSnap = Import-Excel $snapFile -WorksheetName Snapshot
+
+    # 🔒 กันซ้ำ (ถ้า Timestamp เดิม)
+    if ($oldSnap[0].Timestamp -ne $row.Timestamp) {
+        @($row) + $oldSnap | Export-Excel $snapFile `
+            -WorksheetName Snapshot `
+            -ClearSheet `
+            -AutoSize
+    }
+
+} else {
+
+    # ไฟล์แรกของวัน
+    $row | Export-Excel $snapFile `
+        -WorksheetName Snapshot `
+        -AutoSize
+}
+
+# ================= LOG =================
+Add-Content $logFile "$(Get-Date -Format u) ✅ Saved daily snapshot $snapFile"
