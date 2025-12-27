@@ -15,6 +15,9 @@ try {
     exit 1
 }
 
+# ================= PATH =================
+$snapFile = "$snapDir\solar_$dayStr.csv"
+
 # ================= TIME =================
 $ts     = Get-Date
 $tsStr  = $ts.ToString("yyyy-MM-dd HH:mm:ss")
