@@ -1,9 +1,9 @@
 # ================= CONFIG =================
-$apiUrl   = "http://147.50.254.98:3001/api/summary"
-$baseDir  = "D:\SolarData"
-$snapDir  = "$baseDir\snapshots"
-$mainFile = "$baseDir\solar_history.csv"
-$logFile  = "$baseDir\collector.log"
+$apiUrl     = "http://147.50.254.98:3001/api/summary"
+$baseDir    = "D:\SolarData"
+$snapDir    = "$baseDir\snapshots"
+$masterFile = "$baseDir\solar_history.csv"
+$logFile    = "$baseDir\collector.log"
 
 New-Item -ItemType Directory -Force -Path $baseDir, $snapDir | Out-Null
 
@@ -14,9 +14,6 @@ try {
     Add-Content $logFile "$(Get-Date -Format u) ❌ API fetch failed"
     exit 1
 }
-
-# ================= PATH =================
-$snapFile = "$snapDir\solar_$dayStr.csv"
 
 # ================= TIME =================
 $ts     = Get-Date
@@ -42,15 +39,20 @@ $row = [PSCustomObject]@{
 }
 
 # ================= 1) MASTER FILE (สะสมทั้งหมด) =================
-if (Test-Path $mainFile) {
-    $row | Export-Csv $mainFile -Append -NoTypeInformation -Encoding UTF8
+if (Test-Path $masterFile) {
+    $row | Export-Csv $masterFile -Append -NoTypeInformation -Encoding UTF8
 } else {
-    $row | Export-Csv $mainFile -NoTypeInformation -Encoding UTF8
+    $row | Export-Csv $masterFile -NoTypeInformation -Encoding UTF8
 }
 
-# ================= 2) DAILY SNAPSHOT (วันละไฟล์) =================
+# ================= 2) DAILY SNAPSHOT (วันละไฟล์ เพิ่มทุก 5 นาที) =================
 $snapFile = "$snapDir\solar_$dayStr.csv"
-$row | Export-Csv $snapFile -Append -NoTypeInformation -Encoding UTF8
+
+if (Test-Path $snapFile) {
+    $row | Export-Csv $snapFile -Append -NoTypeInformation -Encoding UTF8
+} else {
+    $row | Export-Csv $snapFile -NoTypeInformation -Encoding UTF8
+}
 
 # ================= LOG =================
 Add-Content $logFile "$(Get-Date -Format u) ✅ Saved CSV snapshot $snapFile"
