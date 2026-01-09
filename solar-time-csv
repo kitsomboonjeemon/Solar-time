@@ -29,6 +29,7 @@ $row = [PSCustomObject]@{
     pvEnergy         = $data.pvEnergy
     batCharge        = $data.batCharge
     batDischarge     = $data.batDischarge
+    loadPower        = $data.loadPower
     loadEnergy       = $data.loadEnergy
     gridImport       = $data.gridImport
     gridExport       = $data.gridExport
